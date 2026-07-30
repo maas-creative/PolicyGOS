@@ -42,7 +42,7 @@ export interface ReportMetaExtractionResult {
     model: string;
     inputTokens?: number;
     outputTokens?: number;
-    cost?: number;
+    cost: number | null;
     durationMs: number;
     finishReason: string;
   };

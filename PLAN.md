@@ -420,8 +420,8 @@ GitHub上のfork作成や新規リポジトリ公開は、送信先と内容を�
 
 内容根拠:
 
-- [`../README.md`](../README.md): 現行PolicyGOSの目的、利用者、主要フロー
-- [`../document_ocr_api/README.md`](../document_ocr_api/README.md): 既存OCRバックエンドの役割と出力
+- [`README.md`](./README.md): 現行PolicyGOSの目的、利用者、主要フロー
+- [`document_ocr_api/README.md`](./document_ocr_api/README.md): 既存OCRバックエンドの役割と出力
 - [`ShoFujihara/surveyMeta`](https://github.com/ShoFujihara/surveyMeta): 構造化メタデータ、統制語彙、証拠、複数文書、評価の設計
 - [`thesysdev/openui`](https://github.com/thesysdev/openui): component library、OpenUI Lang、ストリーミングrenderer
 

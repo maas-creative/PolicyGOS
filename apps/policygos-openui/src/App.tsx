@@ -14,7 +14,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   analyzePdf,
   extractPolicyDatasetFromOcr,
-  generateOpenUi
+  generateOpenUi,
+  getRuntimeInfo,
+  type RuntimeInfo
 } from "./api.js";
 import {
   clearWorkspace,
@@ -54,6 +56,9 @@ export function App() {
   >("idle");
   const [pipelineError, setPipelineError] = useState<string>();
   const [sourceRequest, setSourceRequest] = useState<SourceRequest>();
+  const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfo>();
+  const [runtimeInfoError, setRuntimeInfoError] = useState(false);
+  const [showDataHandling, setShowDataHandling] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -72,6 +77,19 @@ export function App() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void getRuntimeInfo(controller.signal)
+      .then(setRuntimeInfo)
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        setRuntimeInfoError(true);
+      });
+    return () => controller.abort();
   }, []);
 
   const selectedMetric = useMemo(
@@ -144,6 +162,7 @@ export function App() {
       <Header
         saveState={saveState}
         hasDataset={Boolean(dataset)}
+        onOpenDataHandling={() => setShowDataHandling(true)}
         onNewDocument={() => {
           if (window.confirm("現在のローカルワークスペースを閉じて、新しい文書を始めますか？")) {
             setDataset(undefined);
@@ -247,6 +266,13 @@ export function App() {
           onClose={() => setSourceRequest(undefined)}
         />
       ) : null}
+      {showDataHandling ? (
+        <DataHandlingDialog
+          runtimeInfo={runtimeInfo}
+          unavailable={runtimeInfoError}
+          onClose={() => setShowDataHandling(false)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -254,10 +280,12 @@ export function App() {
 function Header({
   saveState,
   hasDataset,
+  onOpenDataHandling,
   onNewDocument
 }: {
   saveState: "idle" | "saving" | "saved" | "error";
   hasDataset: boolean;
+  onOpenDataHandling: () => void;
   onNewDocument: () => void;
 }) {
   const saveLabel = {
@@ -276,6 +304,7 @@ function Header({
         </span>
       </a>
       <div className="topbar-actions">
+        <button type="button" onClick={onOpenDataHandling}>データ取扱い</button>
         {hasDataset ? (
           <button type="button" onClick={onNewDocument}>新しい文書</button>
         ) : null}
@@ -285,6 +314,98 @@ function Header({
         </div>
       </div>
     </header>
+  );
+}
+
+function DataHandlingDialog({
+  runtimeInfo,
+  unavailable,
+  onClose
+}: {
+  runtimeInfo: RuntimeInfo | undefined;
+  unavailable: boolean;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <div className="source-viewer-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="data-handling-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="data-handling-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header>
+          <div>
+            <p className="eyebrow">Data handling</p>
+            <h2 id="data-handling-title">文書の送信先と保持</h2>
+          </div>
+          <button className="button button-quiet" type="button" onClick={onClose} autoFocus>
+            閉じる
+          </button>
+        </header>
+        {runtimeInfo ? (
+          <div className="data-handling-content">
+            <p className={`runtime-mode ${runtimeInfo.localOnly ? "runtime-local" : "runtime-remote"}`}>
+              {runtimeInfo.localOnly
+                ? "ローカル限定モード：外部のReportMeta providerは拒否されます。"
+                : "外部接続許可モード：下記の送信先を確認してください。"}
+            </p>
+            <dl>
+              <div>
+                <dt>PDFの送信先</dt>
+                <dd>{runtimeInfo.ocr.host}</dd>
+              </div>
+              <div>
+                <dt>OCRテキストの送信先</dt>
+                <dd>{runtimeInfo.reportMeta.host}</dd>
+              </div>
+              <div>
+                <dt>ReportMeta</dt>
+                <dd>
+                  {runtimeInfo.reportMeta.provider} · {runtimeInfo.reportMeta.model}
+                </dd>
+              </div>
+              <div>
+                <dt>OpenUI生成</dt>
+                <dd>
+                  {runtimeInfo.openUi.host} · {runtimeInfo.openUi.model}
+                </dd>
+              </div>
+              <div>
+                <dt>サーバーでの保持</dt>
+                <dd>リクエスト処理中のみ。PolicyGOS APIは文書を永続保存しません。</dd>
+              </div>
+              <div>
+                <dt>このブラウザでの保持</dt>
+                <dd>
+                  PDF・抽出データ・確認履歴を、新しい文書を開始して消去するまでIndexedDBへ保存します。
+                </dd>
+              </div>
+            </dl>
+            <p className="data-handling-note">
+              APIキーはサーバー側だけで扱い、ブラウザには返しません。
+            </p>
+          </div>
+        ) : unavailable ? (
+          <p className="pipeline-error" role="alert">
+            実行環境の情報を取得できません。文書を送る前にサーバー設定を確認してください。
+          </p>
+        ) : (
+          <p className="pipeline-status" role="status">実行環境を確認中…</p>
+        )}
+      </section>
+    </div>
   );
 }
 

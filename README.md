@@ -60,6 +60,8 @@ pnpm --filter @policygos/openui-app dev
 
 `pnpm check`はlint、型検査、単体・統合テスト、本番ビルド、モック境界を使うChromium E2Eを実行します。E2EはPDF選択からOCR・構造化抽出を経て、根拠確認、PDF 2ページ目の表示、OpenUI生成、IndexedDBからの復元までを検査します。
 
+gold setの定義、実測指標、旧版との同一入力比較は[`EVALUATION.md`](./EVALUATION.md)に記録しています。
+
 OCR、LM Studio、ReportMeta、OpenUIを実サービスで通す場合は、OCRとAPIを起動した状態で次を実行します。
 
 ```bash
@@ -67,6 +69,8 @@ pnpm test:e2e:real
 ```
 
 この実サービス検査は、PDFの2ページ取得、80%の目標値と76%の実績値、引用とページ本文の一致、文書IDの保持、OpenUI許可リストの通過を確認します。2026年7月31日のローカル検証では、LM Studioの`agents-a1-4b-oqe6`を使用しました。モデル名は環境に合わせて`OPENAI_MODEL`で指定してください。
+
+ReportMetaとOpenUIでモデルを分ける場合は、構造化抽出用を`OPENAI_MODEL`、画面構成用を`OPENUI_MODEL`へ指定します。推論出力だけで本文を返さないモデルはOpenUI生成に適さないため、OpenUIには指示追従が速く、本文を返すモデルを選びます。
 
 ## 失敗時の判断
 

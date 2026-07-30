@@ -13,8 +13,7 @@ import {
   type ServerConfig
 } from "./config.js";
 import {
-  pipeOpenAiSse,
-  requestOpenUiStream,
+  requestOpenUiProgram,
   type OpenUiGenerationRequest
 } from "./openui.js";
 
@@ -54,7 +53,23 @@ export function createPolicyApi(
     context.json({
       status: "healthy",
       service: "policygos-openui-api",
-      localOnly: config.localOnly
+      localOnly: config.localOnly,
+      reportMeta: {
+        provider: config.reportMetaProvider,
+        model: config.reportMetaModel,
+        host: config.reportMetaProviderHost
+      },
+      openUi: {
+        model: config.openUiModel,
+        host: new URL(config.openAiBaseUrl).origin
+      },
+      ocr: {
+        host: new URL(config.ocrBackendUrl).origin
+      },
+      retention: {
+        server: "request-only",
+        browser: "until-workspace-is-cleared"
+      }
     })
   );
 
@@ -117,23 +132,30 @@ export function createPolicyApi(
       );
     }
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120_000);
-    const upstream = await requestOpenUiStream(
-      request,
-      config,
-      controller.signal,
-      fetchImpl
-    );
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 120_000);
+    let program: string;
+    try {
+      program = await requestOpenUiProgram(
+        request,
+        config,
+        controller.signal,
+        fetchImpl
+      );
+    } catch (error) {
+      if (timedOut) {
+        throw new Error("OpenUI generation timed out after 120 seconds");
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
     return streamText(context, async (stream) => {
-      stream.onAbort(() => controller.abort());
-      try {
-        await pipeOpenAiSse(upstream, (chunk) => stream.write(chunk));
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          throw error;
-        }
-      } finally {
-        clearTimeout(timeout);
+      for (const line of program.match(/[^\n]*\n|[^\n]+$/g) ?? [program]) {
+        await stream.write(line);
       }
     });
   });

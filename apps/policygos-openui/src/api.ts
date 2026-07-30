@@ -17,6 +17,35 @@ const extractionResponseSchema = z.object({
   }).passthrough()
 });
 
+const runtimeInfoSchema = z.object({
+  localOnly: z.boolean(),
+  reportMeta: z.object({
+    provider: z.enum(["local", "openai", "gemini", "ollama"]),
+    model: z.string(),
+    host: z.string().url()
+  }),
+  openUi: z.object({
+    model: z.string(),
+    host: z.string().url()
+  }),
+  ocr: z.object({
+    host: z.string().url()
+  }),
+  retention: z.object({
+    server: z.literal("request-only"),
+    browser: z.literal("until-workspace-is-cleared")
+  })
+});
+
+export type RuntimeInfo = z.infer<typeof runtimeInfoSchema>;
+
+export async function getRuntimeInfo(signal?: AbortSignal): Promise<RuntimeInfo> {
+  const response = await fetch("/api/health", {
+    ...(signal ? { signal } : {})
+  });
+  return runtimeInfoSchema.parse(await readJsonResponse(response));
+}
+
 export async function analyzePdf(
   file: File,
   signal?: AbortSignal

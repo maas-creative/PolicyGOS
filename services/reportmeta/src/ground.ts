@@ -25,11 +25,13 @@ export function groundPolicyDataset(
         `Evidence ${item.id} is not an exact quotation from page ${item.pageNumber}`
       );
     }
+    const location = evidenceLocation(page, item.quote);
     return {
       id: item.id,
       documentId: item.documentId,
       pageNumber: item.pageNumber,
       quote: item.quote,
+      ...location,
       extractionMethod: pageExtractionMethod(page.extractionMode)
     } satisfies Evidence;
   });
@@ -121,15 +123,13 @@ export function groundPolicyDataset(
             `Metric value ${value.id} is not present in its evidence quotation`
           );
         }
+        const unit = groundedUnit(value.unit, valueText, value.value);
+        const fiscalYear = groundedFiscalYear(value.fiscalYear, valueText);
         return {
           ...value,
           reviewStatus: "unreviewed" as const,
-          ...(value.unit && containsText(valueText, value.unit)
-            ? { unit: value.unit }
-            : { unit: undefined }),
-          ...(value.fiscalYear && containsText(valueText, value.fiscalYear)
-            ? { fiscalYear: value.fiscalYear }
-            : { fiscalYear: undefined }),
+          ...(unit ? { unit } : { unit: undefined }),
+          ...(fiscalYear ? { fiscalYear } : { fiscalYear: undefined }),
           ...(value.denominator && containsText(valueText, value.denominator)
             ? { denominator: value.denominator }
             : { denominator: undefined }),
@@ -180,9 +180,84 @@ function normalizeText(value: string): string {
   return value.normalize("NFKC").replace(/\s+/g, "");
 }
 
+function evidenceLocation(
+  page: ReportMetaExtractionRequest["documents"][number]["ocr"]["pages"][number],
+  quote: string
+): Pick<Evidence, "boundingBox" | "table"> {
+  const normalizedQuote = normalizeText(quote);
+  const tableCell = page.tables
+    .flatMap((table) =>
+      table.cells.map((cell) => ({
+        table,
+        cell,
+        text: normalizeText(cell.text)
+      }))
+    )
+    .filter(({ text }) => text.length > 0 && text.includes(normalizedQuote))
+    .sort((left, right) => left.text.length - right.text.length)[0];
+
+  if (tableCell) {
+    return {
+      ...(tableCell.cell.bbox
+        ? { boundingBox: tupleToBoundingBox(tableCell.cell.bbox) }
+        : tableCell.table.bbox
+          ? { boundingBox: tupleToBoundingBox(tableCell.table.bbox) }
+          : {}),
+      table: {
+        tableId: tableCell.table.id,
+        row: tableCell.cell.row,
+        column: tableCell.cell.column
+      }
+    };
+  }
+
+  const block = page.blocks
+    .map((item) => ({ item, text: normalizeText(item.text) }))
+    .filter(({ text }) => text.length > 0 && text.includes(normalizedQuote))
+    .sort((left, right) => left.text.length - right.text.length)[0]?.item;
+
+  return block ? { boundingBox: tupleToBoundingBox(block.bbox) } : {};
+}
+
+function tupleToBoundingBox(
+  [x0, y0, x1, y1]: [number, number, number, number]
+): NonNullable<Evidence["boundingBox"]> {
+  return { x0, y0, x1, y1 };
+}
+
 function containsMoney(source: string, amount: number): boolean {
   const normalized = normalizeText(source).replaceAll(",", "");
   return normalized.includes(`${amount}円`);
+}
+
+function groundedFiscalYear(
+  candidate: string | undefined,
+  sourceText: string
+): string | undefined {
+  if (candidate && containsText(sourceText, candidate)) {
+    return candidate;
+  }
+  return normalizeText(sourceText).match(
+    /(令和|平成|昭和)\d+年度|20\d{2}年度/u
+  )?.[0];
+}
+
+function groundedUnit(
+  candidate: string | undefined,
+  sourceText: string,
+  value: string | number
+): string | undefined {
+  if (candidate && containsText(sourceText, candidate)) {
+    return candidate;
+  }
+  const normalized = sourceText.normalize("NFKC").replace(/\s+/g, "");
+  const valueIndex = normalized.indexOf(String(value).normalize("NFKC"));
+  if (valueIndex < 0) {
+    return undefined;
+  }
+  return normalized
+    .slice(valueIndex + String(value).length)
+    .match(/^(%|円|人|件|台|回|km|m|ha)/iu)?.[0];
 }
 
 function groundedPeriod(

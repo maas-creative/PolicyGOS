@@ -68,12 +68,122 @@ describe("ReportMeta extraction", () => {
     };
     const result = await extractPolicyDataset(request, provider);
     expect(result.dataset.schemaVersion).toBe("policy-dataset-v1");
+    expect(result.dataset.indicators[0]?.values[1]?.fiscalYear).toBe(
+      "令和7年度"
+    );
     expect(result.provider).toMatchObject({
       name: "fixture",
       model: "fixture-model",
       inputTokens: 100,
-      outputTokens: 200
+      outputTokens: 200,
+      cost: null
     });
+  });
+
+  it("derives evidence coordinates and table location from OCR, not provider output", async () => {
+    const fixture = buildPolicyDatasetFixture();
+    const requestWithGeometry: ReportMetaExtractionRequest = {
+      documents: [
+        {
+          ...request.documents[0]!,
+          ocr: {
+            ...request.documents[0]!.ocr,
+            pages: request.documents[0]!.ocr.pages.map((page) =>
+              page.pageNumber === 1
+                ? {
+                    ...page,
+                    blocks: [
+                      {
+                        text: "成果指標の目標値は80%とする。",
+                        bbox: [11, 22, 211, 44],
+                        source: "pymupdf"
+                      }
+                    ],
+                    tables: [
+                      {
+                        id: "page-1-table-1",
+                        bbox: [5, 10, 250, 80],
+                        rowCount: 1,
+                        columnCount: 1,
+                        rows: [["成果指標の目標値は80%とする。"]],
+                        cells: [
+                          {
+                            row: 0,
+                            column: 0,
+                            text: "成果指標の目標値は80%とする。",
+                            bbox: [12, 23, 210, 43]
+                          }
+                        ],
+                        source: "pymupdf"
+                      }
+                    ]
+                  }
+                : page
+            )
+          }
+        }
+      ]
+    };
+    const provider: ReportMetaProvider = {
+      name: "fixture",
+      generate: vi.fn().mockResolvedValue({
+        value: {
+          ...fixture,
+          documents: [{ ...fixture.documents[0], id: "document-1" }],
+          evidence: fixture.evidence.map((item) => ({
+            ...item,
+            boundingBox: { x0: 999, y0: 999, x1: 1000, y1: 1000 }
+          }))
+        },
+        model: "fixture-model",
+        finishReason: "completed"
+      })
+    };
+
+    const result = await extractPolicyDataset(requestWithGeometry, provider);
+    expect(result.dataset.evidence[0]).toMatchObject({
+      boundingBox: { x0: 12, y0: 23, x1: 210, y1: 43 },
+      table: { tableId: "page-1-table-1", row: 0, column: 0 }
+    });
+    expect(result.dataset.evidence[1]?.boundingBox).toBeUndefined();
+  });
+
+  it("accepts and preserves multiple supplied document identities", async () => {
+    const fixture = buildPolicyDatasetFixture();
+    const secondDocument = {
+      ...request.documents[0]!,
+      documentId: "document-2",
+      fileName: "settlement.pdf"
+    };
+    const provider: ReportMetaProvider = {
+      name: "fixture",
+      generate: vi.fn().mockResolvedValue({
+        value: {
+          ...fixture,
+          documents: [
+            { ...fixture.documents[0], id: "document-1" },
+            {
+              ...fixture.documents[0],
+              id: "document-2",
+              fileName: "settlement.pdf"
+            }
+          ]
+        },
+        model: "fixture-model",
+        cost: 0,
+        finishReason: "completed"
+      })
+    };
+
+    const result = await extractPolicyDataset(
+      { documents: [...request.documents, secondDocument] },
+      provider
+    );
+    expect(result.dataset.documents.map(({ id }) => id)).toEqual([
+      "document-1",
+      "document-2"
+    ]);
+    expect(result.provider.cost).toBe(0);
   });
 
   it("does not treat invalid structured output as success", async () => {

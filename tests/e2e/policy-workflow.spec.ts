@@ -10,6 +10,30 @@ const fixturePdfPath = fileURLToPath(
 );
 
 test("PDFから根拠確認、保存、OpenUI説明まで完了する", async ({ page }) => {
+  await page.route("**/api/health", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "healthy",
+        service: "policygos-openui-api",
+        localOnly: true,
+        reportMeta: {
+          provider: "local",
+          model: "deterministic",
+          host: "http://127.0.0.1:1234"
+        },
+        openUi: {
+          model: "deterministic",
+          host: "http://127.0.0.1:1234"
+        },
+        ocr: { host: "http://127.0.0.1:8000" },
+        retention: {
+          server: "request-only",
+          browser: "until-workspace-is-cleared"
+        }
+      })
+    });
+  });
   await page.route("**/api/ocr/analyze", async (route) => {
     await route.fulfill({
       contentType: "application/json",
@@ -88,6 +112,12 @@ test("PDFから根拠確認、保存、OpenUI説明まで完了する", async ({
   });
 
   await page.goto("/");
+  await page.getByRole("button", { name: "データ取扱い" }).click();
+  const dataHandling = page.getByRole("dialog", { name: "文書の送信先と保持" });
+  await expect(dataHandling).toContainText("ローカル限定モード");
+  await expect(dataHandling).toContainText("http://127.0.0.1:8000");
+  await expect(dataHandling).toContainText("IndexedDB");
+  await dataHandling.getByRole("button", { name: "閉じる" }).click();
   await page.getByLabel("PDFを選択").setInputFiles(fixturePdfPath);
 
   await expect(page.getByRole("heading", { name: "抽出結果を確認" })).toBeVisible();

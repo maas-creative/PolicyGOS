@@ -81,7 +81,7 @@ export async function extractPolicyDataset(
       ...(output.outputTokens !== undefined
         ? { outputTokens: output.outputTokens }
         : {}),
-      ...(output.cost !== undefined ? { cost: output.cost } : {}),
+      cost: output.cost ?? null,
       durationMs: Math.round(performance.now() - startedAt),
       finishReason: output.finishReason
     }
