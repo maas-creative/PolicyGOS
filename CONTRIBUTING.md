@@ -1,29 +1,22 @@
 # Contributing
 
-## Before opening a pull request
+## 変更前の確認
 
-- Confirm the change fits the public scope of PolicyGOS
-- Prefer small, reviewable pull requests
-- Include verification commands in the PR description
+- 変更対象を`apps`、`packages`、`services`のいずれかに限定してください。
+- APIキー、実文書、ローカル生成物をコミットしないでください。
+- 構造化データとOpenUIの参照整合性を緩める変更には、失敗ケースのテストを追加してください。
 
-## Local verification
-
-```bash
-cd policyevaluationGOS
-npm run type-check
-npm test
-npm run build
-```
-
-If your change affects the real PDF flow, also run:
+## ローカル検証
 
 ```bash
-cd policyevaluationGOS
-npx playwright test tests/e2e/workspace-real-pdf.spec.ts
+pnpm install
+pnpm check
 ```
 
-## Pull request guidance
+OCRとモデル接続へ影響する変更では、OCRサービスとPolicyGOS APIを起動して次も実行します。
 
-- Explain the user-facing impact first
-- Note any backend/environment requirements
-- Avoid committing local artifacts, credentials, screenshots, or agent-specific files
+```bash
+pnpm test:e2e:real
+```
+
+Pull Requestには、利用者への影響、必要な環境変数、実行した検証コマンドを記載してください。

@@ -1,0 +1,25 @@
+{
+  "name": "policygos",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "build": "pnpm -r --if-present build",
+    "type-check": "pnpm -r --if-present type-check",
+    "test": "pnpm -r --if-present test",
+    "test:e2e": "playwright test",
+    "test:e2e:real": "node scripts/real-provider-e2e.mjs",
+    "lint": "eslint .",
+    "check": "pnpm build && pnpm lint && pnpm type-check && pnpm test && pnpm test:e2e"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@playwright/test": "^1.62.0",
+    "eslint": "^9.39.2",
+    "globals": "^16.4.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^4.1.0"
+  }
+}

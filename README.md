@@ -1,110 +1,78 @@
 # PolicyGOS
 
-PolicyGOS は、行政・政策関連 PDF をもとに、住民向けや議員向けの briefing を生成するためのローカル実行型 OSS です。
+PolicyGOSは、政策評価PDFをOCRし、出典ページに結び付いた構造化データとして確認した後、確認済みデータだけからOpenUIの説明画面を生成するローカル優先のワークスペースです。
 
-このリポジトリは、試作コードの置き場ではなく、実際に clone して動かせる公開用リポジトリとして整備しています。
+[サービス紹介サイト](https://ukyonagata0105.github.io/PolicyGOS/)
 
-![PolicyGOS prompt-first shell](docs-open/images/prompt-first-shell.png)
+## 構成
 
-## 1. 何ができるか
+- `services/document-ocr-adapter`: 既存Yomitoku系OCR APIを検査し、ページ・ブロック・表を共通形式へ変換します。
+- `services/reportmeta`: OCR本文から`PolicyDataset v1`を抽出し、引用箇所がOCRページに実在するか検査します。
+- `packages/policy-schema`: データ構造、参照整合性、確認履歴、JSON Schemaを管理します。
+- `packages/policy-openui-library`: 許可した10種類のOpenUI部品と操作だけを公開します。
+- `apps/policygos-openui`: PDF取込、根拠確認、履歴保存、出典PDF表示、説明生成、JSON・CSV・HTML出力を提供します。
 
-- prompt-first の composer から briefing を起動する
-- PDF を composer に添付して、質問と一緒に扱う
-- OCR / repair / source discovery を使って PDF を処理する
-- browser / fullscreen / ZIP export の各出力を扱う
-- 実 PDF を使った E2E で主要フローを確認する
+ブラウザにはAPIキーを渡しません。`POLICYGOS_LOCAL_ONLY=true`の条件下では、ReportMetaからlocalhost以外のモデルAPIへ文書を送信できません。
 
-## 2. 想定する利用者
+## 初回準備
 
-- 行政資料を住民向けに説明したい人
-- 政策 PDF の論点や評価指標を briefing として整理したい人
-- PDF を添付して質問起点の説明ページを作りたい人
-
-## 3. ユースケース
-
-PolicyGOS は、自治体や公共団体の情報提供面に組み込むことを強く意識しています。たとえば自治体の Web サイトに組み込み、住民からの問い合わせや政策に関する質問に対して、単なるチャットのテキスト応答ではなく、図表・要点整理・出典・補足説明を含む briefing surface として、よりグラフィカルかつ網羅的に返す使い方を想定しています。
-
-また、政策 PDF や事業一覧表を添付したうえで「この文書の要点を住民向けに整理して」「評価指標だけを抜き出して」といった質問を送ることで、問い合わせ対応、住民説明、議会説明、内部検討のたたき台を作る用途にも向いています。
-
-### iframe 組み込みについて
-
-現時点では、PolicyGOS はアプリ内部で生成 HTML を iframe 表示する構成になっています。Vite / Electron 側にも埋め込みを明示的に禁止する `X-Frame-Options` や `Content-Security-Policy: frame-ancestors` は入っていないため、公開時の hosting 設定で同種の制限を加えなければ、外部サイトへ iframe で組み込むことは可能です。
-
-ただし、現在は iframe 埋め込み専用の軽量ビルドや postMessage API、親サイトとの連携イベントはまだ用意していません。そのため「技術的には埋め込めるが、埋め込み特化の製品形にはまだなっていない」という位置づけです。
-
-## 4. リポジトリ構成
-
-- `policyevaluationGOS/`
-  - React + Vite + Electron ベースの frontend
-  - prompt-first の composer UI
-  - PDF 添付、preview、export、E2E テスト
-- `document_ocr_api/`
-  - FastAPI ベースの backend
-  - PDF 読み込み、OCR fallback、repair、source discovery
-- `docs-open/`
-  - 公開向けドキュメント
-
-## 5. クイックスタート
-
-### 4.1 frontend 依存関係
+Node.js、pnpm、既存OCRサービスのPython環境、OpenAI互換APIを有効にしたLM Studioを用意します。
 
 ```bash
-cd policyevaluationGOS
-npm install
+cd /Volumes/UNTITLED/Obsidian/Projects/PolicyGOS
+pnpm install
+cp .env.example .env
+pnpm check
 ```
 
-### 4.2 backend 依存関係
+PlaywrightのChromiumが未導入の場合は、次を一度実行します。
 
 ```bash
-cd document_ocr_api
-/opt/homebrew/bin/python3.12 -m venv venv312
-source venv312/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-pip install paddlepaddle paddleocr 'paddlex[ocr]'
+pnpm exec playwright install chromium-headless-shell
 ```
 
-Windows では `py -3.12 -m venv venv312` を使ってください。
+## 起動
 
-### 4.3 推奨起動
+3つのターミナルでOCR、API、画面を順に起動します。
 
 ```bash
-cd policyevaluationGOS
-npm run debug:full
+cd /Volumes/UNTITLED/Obsidian/Projects/PolicyGOS/document_ocr_api
+PORT=8000 ./venv312/bin/python main.py
 ```
-
-この起動フローでは backend identity を検証し、ローカル backend は空いている 5 桁 port に自動で立ち上がります。
-
-## 6. よく使うコマンド
 
 ```bash
-cd policyevaluationGOS
-npm run type-check
-npm test
-npm run build
-npx playwright test tests/e2e/workspace-real-pdf.spec.ts
+cd /Volumes/UNTITLED/Obsidian/Projects/PolicyGOS
+set -a
+source .env
+set +a
+pnpm build
+node apps/policygos-openui/server-dist/index.js
 ```
 
-## 7. ドキュメント
+```bash
+cd /Volumes/UNTITLED/Obsidian/Projects/PolicyGOS
+pnpm --filter @policygos/openui-app dev
+```
 
-公開向け文書は `docs-open/` を参照してください。
+画面は通常`http://127.0.0.1:5173`、APIは`http://127.0.0.1:8787`で待機します。
 
-- `docs-open/overview-ja.md`
-- `docs-open/development-ja.md`
-- `docs-open/publication-notes-ja.md`
+## 確認手順
 
-コミュニティ向けファイル:
+`pnpm check`はlint、型検査、単体・統合テスト、本番ビルド、モック境界を使うChromium E2Eを実行します。E2EはPDF選択からOCR・構造化抽出を経て、根拠確認、PDF 2ページ目の表示、OpenUI生成、IndexedDBからの復元までを検査します。
 
-- `CONTRIBUTING.md`
-- `SECURITY.md`
+OCR、LM Studio、ReportMeta、OpenUIを実サービスで通す場合は、OCRとAPIを起動した状態で次を実行します。
 
-## 8. 注意事項
+```bash
+pnpm test:e2e:real
+```
 
-- 本 OSS はローカル実行を前提としています
-- OCR 精度や表構造抽出精度は PDF 品質に依存します
-- 一部の flow では Gemini API key など外部 LLM の設定が必要です
-- backend の identity を検証しない古い起動方法では、誤った local service に接続する可能性があります
+この実サービス検査は、PDFの2ページ取得、80%の目標値と76%の実績値、引用とページ本文の一致、文書IDの保持、OpenUI許可リストの通過を確認します。2026年7月31日のローカル検証では、LM Studioの`agents-a1-4b-oqe6`を使用しました。モデル名は環境に合わせて`OPENAI_MODEL`で指定してください。
 
-## 9. ライセンス
+## 失敗時の判断
 
-MIT
+- OCRが失敗した場合: `http://127.0.0.1:8000/health`と`/formats`を確認します。
+- ReportMetaが422を返す場合: モデル出力がスキーマ、文書ID、引用本文、値と根拠のいずれかを満たしていません。検証を外さず、モデルまたは抽出指示を調整します。
+- OpenUIが409を返す場合: 根拠付きの値が確認済みまたは修正済みになっていません。
+- 出典PDFを表示できない場合: 同じブラウザで元PDFを再度取り込みます。データセットとPDF原本はIndexedDBへ保存されます。
+
+外部公開や複数利用者運用へ移す場合は、認証、テナント分離、監査ログのサーバー永続化、保存期間、バックアップを別途実装する必要があります。現在の構成は単一端末での確認作業を対象とします。

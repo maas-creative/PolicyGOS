@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="PolicyGOSは、政策評価PDFから根拠付きの構造化データを作り、人の確認を経て説明画面を生成するローカル優先のオープンソース・ワークスペースです。"
+    />
+    <meta name="theme-color" content="#f3f7f3" />
+    <meta property="og:title" content="PolicyGOS — 政策文書を、根拠とともに読める形へ。" />
+    <meta
+      property="og:description"
+      content="PDF、OCR、構造化抽出、人による確認、OpenUI生成を一つの流れに。"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://ukyonagata0105.github.io/PolicyGOS/" />
+    <link rel="canonical" href="https://ukyonagata0105.github.io/PolicyGOS/" />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css" />
+    <title>PolicyGOS — Evidence workspace for policy documents</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">本文へ移動</a>
+    <header class="site-header">
+      <nav class="nav shell" aria-label="メインナビゲーション">
+        <a class="brand" href="#top" aria-label="PolicyGOS ホーム">
+          <span class="brand-mark" aria-hidden="true">P</span>
+          <span>
+            <strong>PolicyGOS</strong>
+            <small>Evidence workspace</small>
+          </span>
+        </a>
+        <div class="nav-links">
+          <a href="#flow">仕組み</a>
+          <a href="#trust">信頼設計</a>
+          <a href="#architecture">構成</a>
+          <a
+            class="nav-cta"
+            href="https://github.com/ukyonagata0105/PolicyGOS"
+          >
+            GitHubで見る
+          </a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero shell" id="top">
+        <div class="hero-copy">
+          <p class="eyebrow">Open source · Local first</p>
+          <h1>政策文書を、<br /><span>根拠とともに</span>読める形へ。</h1>
+          <p class="hero-lead">
+            PolicyGOSは、政策評価PDFを構造化し、数値と出典ページを人が照合してから、
+            読み手に合った説明画面を生成するワークスペースです。
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#flow">処理の流れを見る</a>
+            <a
+              class="button button-secondary"
+              href="https://github.com/ukyonagata0105/PolicyGOS#%E5%88%9D%E5%9B%9E%E6%BA%96%E5%82%99"
+            >
+              ローカルで試す
+            </a>
+          </div>
+          <ul class="hero-facts" aria-label="主な特徴">
+            <li>APIキーはサーバー側だけに保持</li>
+            <li>引用とページ本文を照合</li>
+            <li>確認済みの値だけを説明に使用</li>
+          </ul>
+        </div>
+
+        <div class="product-stage" aria-label="PolicyGOSの確認画面イメージ">
+          <div class="stage-glow" aria-hidden="true"></div>
+          <article class="workspace-preview">
+            <header class="preview-header">
+              <div class="preview-brand">
+                <span aria-hidden="true">P</span>
+                <strong>PolicyGOS</strong>
+              </div>
+              <span class="saved"><i aria-hidden="true"></i>保存済み</span>
+            </header>
+            <div class="preview-body">
+              <aside class="preview-steps" aria-hidden="true">
+                <span>01&nbsp;&nbsp;文書</span>
+                <span class="active">02&nbsp;&nbsp;確認</span>
+                <span>03&nbsp;&nbsp;説明</span>
+              </aside>
+              <div class="preview-content">
+                <div class="preview-title">
+                  <div>
+                    <small>STEP 2 · REVIEW</small>
+                    <h2>抽出結果を確認</h2>
+                  </div>
+                  <strong>1 <em>/ 2</em></strong>
+                </div>
+                <div class="preview-grid">
+                  <div class="metric-stack">
+                    <article class="metric-card selected">
+                      <header>
+                        <span>成果指標</span>
+                        <b>確認済み</b>
+                      </header>
+                      <h3>公共交通利用者満足度</h3>
+                      <p><strong>80</strong><span>%</span><small>目標</small></p>
+                    </article>
+                    <article class="metric-card">
+                      <header>
+                        <span>成果指標</span>
+                        <b class="pending">未確認</b>
+                      </header>
+                      <h3>公共交通利用者満足度</h3>
+                      <p><strong>76</strong><span>%</span><small>実績</small></p>
+                    </article>
+                  </div>
+                  <aside class="evidence-card">
+                    <small>SOURCE</small>
+                    <h3>根拠を照合</h3>
+                    <blockquote>「令和7年度の実績値は76%であった。」</blockquote>
+                    <a href="#flow" tabindex="-1">政策評価書 · p. 2</a>
+                  </aside>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section shell" id="flow">
+        <div class="section-heading">
+          <p class="eyebrow">From document to explanation</p>
+          <h2>生成する前に、根拠を確かめる。</h2>
+          <p>
+            PDFをそのまま言語モデルへ渡して回答を得るのではなく、抽出、検証、人による確認、
+            表示生成を分けています。
+          </p>
+        </div>
+        <ol class="flow-grid">
+          <li>
+            <span>01</span>
+            <div>
+              <h3>文書を読む</h3>
+              <p>デジタルPDFはPyMuPDFで処理し、必要な場合はOCRへ切り替えます。</p>
+            </div>
+          </li>
+          <li>
+            <span>02</span>
+            <div>
+              <h3>構造化する</h3>
+              <p>政策、事業、指標、値、引用、ページ番号をPolicyDatasetへ整理します。</p>
+            </div>
+          </li>
+          <li>
+            <span>03</span>
+            <div>
+              <h3>人が確認する</h3>
+              <p>抽出値とPDF原本を並べて確認し、確定、修正、却下の履歴を残します。</p>
+            </div>
+          </li>
+          <li>
+            <span>04</span>
+            <div>
+              <h3>説明を組み立てる</h3>
+              <p>確認済みIDだけを、許可されたOpenUI部品へ結び付けて表示します。</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="trust-section" id="trust">
+        <div class="shell trust-layout">
+          <div class="section-heading">
+            <p class="eyebrow">Evidence before presentation</p>
+            <h2>見た目より先に、<br />参照の整合性を守る。</h2>
+            <p>
+              PolicyGOSが扱うのは、生成された文章だけではありません。どの値が、どの文書の、
+              何ページに書かれていたかをデータ構造として保持します。
+            </p>
+          </div>
+          <div class="trust-cards">
+            <article>
+              <span class="card-index">A</span>
+              <h3>引用を機械検査</h3>
+              <p>ReportMetaの引用文が指定されたOCRページ内に存在しない場合、抽出全体を失敗として扱います。</p>
+            </article>
+            <article>
+              <span class="card-index">B</span>
+              <h3>未確認値を公開しない</h3>
+              <p>OpenUIへ渡せる数値は、根拠を持ち、人が確認または修正した値に限定されます。</p>
+            </article>
+            <article>
+              <span class="card-index">C</span>
+              <h3>任意コードを実行しない</h3>
+              <p>生成結果は10種類の登録部品と許可された操作だけで構成し、HTMLやJavaScriptを受け付けません。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell" id="architecture">
+        <div class="section-heading compact">
+          <p class="eyebrow">Architecture</p>
+          <h2>役割を分け、失敗を見える状態に。</h2>
+        </div>
+        <div class="architecture-grid">
+          <article>
+            <small>01 · INPUT</small>
+            <h3>OCR Adapter</h3>
+            <p>既存OCRサービスの応答を、ページ・ブロック・表を持つ共通形式へ変換します。</p>
+          </article>
+          <article>
+            <small>02 · STRUCTURE</small>
+            <h3>ReportMeta</h3>
+            <p>構造化出力をスキーマ検証し、文書ID、引用、値と根拠の関係を確認します。</p>
+          </article>
+          <article>
+            <small>03 · REVIEW</small>
+            <h3>PolicyDataset</h3>
+            <p>確認状態と操作履歴を保持し、元PDFとともにブラウザ内へ保存します。</p>
+          </article>
+          <article>
+            <small>04 · PRESENT</small>
+            <h3>OpenUI Library</h3>
+            <p>質問と読み手に応じ、検証済みIDを使って説明画面を構成します。</p>
+          </article>
+        </div>
+        <div class="scope-note">
+          <div>
+            <p class="eyebrow">Current scope</p>
+            <h3>単一端末での政策文書確認に対応</h3>
+          </div>
+          <p>
+            現在の実装はローカルでの確認作業を対象とします。複数利用者で運用する場合は、
+            認証、テナント分離、サーバー側の監査ログ、バックアップを追加する設計です。
+          </p>
+        </div>
+      </section>
+
+      <section class="cta-section">
+        <div class="shell cta-card">
+          <div>
+            <p class="eyebrow">MIT licensed · Open source</p>
+            <h2>政策の説明を、出典から組み立てる。</h2>
+            <p>実装、PolicyDataset v1、E2E用PDF、起動手順をGitHubで公開しています。</p>
+          </div>
+          <a
+            class="button button-light"
+            href="https://github.com/ukyonagata0105/PolicyGOS"
+          >
+            リポジトリを見る
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="shell footer-inner">
+        <div class="brand footer-brand">
+          <span class="brand-mark" aria-hidden="true">P</span>
+          <span><strong>PolicyGOS</strong><small>Evidence workspace</small></span>
+        </div>
+        <p>Policy documents, structured with evidence.</p>
+        <a href="https://github.com/ukyonagata0105/PolicyGOS">GitHub</a>
+      </div>
+    </footer>
+  </body>
+</html>
