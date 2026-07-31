@@ -2,10 +2,10 @@
 
 PolicyGOSは、政策評価PDFをOCRし、出典ページに結び付いた構造化データとして確認した後、確認済みデータだけからOpenUIの説明画面を生成するワークスペースです。ローカル実行と、認証・TLS・監査記録を備えた外部サーバー実行をサポートします。
 
-[![CI](https://github.com/ukyonagata0105/PolicyGOS/actions/workflows/ci.yml/badge.svg)](https://github.com/ukyonagata0105/PolicyGOS/actions/workflows/ci.yml)
+[![CI](https://github.com/maas-creative/PolicyGOS/actions/workflows/ci.yml/badge.svg)](https://github.com/maas-creative/PolicyGOS/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-[サービス紹介サイト](https://ukyonagata0105.github.io/PolicyGOS/)
+[サービス紹介サイト](https://maas-creative.github.io/PolicyGOS/)
 
 ## 構成
 
@@ -30,7 +30,7 @@ PolicyGOS本体は[MIT License](./LICENSE)です。依存パッケージとモ�
 Node.js 22、pnpm 11、Python 3.12、OpenAI互換APIを有効にしたLM Studioを用意します。
 
 ```bash
-git clone https://github.com/ukyonagata0105/PolicyGOS.git
+git clone https://github.com/maas-creative/PolicyGOS.git
 cd PolicyGOS
 pnpm install
 cp .env.example .env

@@ -4,13 +4,13 @@
   "private": true,
   "description": "Evidence-bound policy document OCR, structured extraction, human review, and OpenUI generation.",
   "license": "MIT",
-  "homepage": "https://ukyonagata0105.github.io/PolicyGOS/",
+  "homepage": "https://maas-creative.github.io/PolicyGOS/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ukyonagata0105/PolicyGOS.git"
+    "url": "https://github.com/maas-creative/PolicyGOS.git"
   },
   "bugs": {
-    "url": "https://github.com/ukyonagata0105/PolicyGOS/issues"
+    "url": "https://github.com/maas-creative/PolicyGOS/issues"
   },
   "engines": {
     "node": ">=22.22"

@@ -12,7 +12,7 @@ test("GitHub Pages用サイトがデスクトップとモバイルで表示で�
   await expect(page.getByRole("heading", { name: "生成する前に、根拠を確かめる。" })).toBeVisible();
   await expect(page.getByRole("link", { name: "GitHubで見る" })).toHaveAttribute(
     "href",
-    "https://github.com/ukyonagata0105/PolicyGOS"
+    "https://github.com/maas-creative/PolicyGOS"
   );
 
   await page.setViewportSize({ width: 390, height: 844 });
