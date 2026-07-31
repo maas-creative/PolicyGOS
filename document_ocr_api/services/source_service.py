@@ -1,4 +1,6 @@
 import os
+import ipaddress
+import socket
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import Optional
@@ -52,6 +54,56 @@ class FetchedSourcePdf:
     file_name: str
 
 
+def validate_public_url(url: str) -> None:
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise HTTPException(status_code=400, detail="Only public HTTP(S) URLs are allowed")
+    if parsed.username or parsed.password:
+        raise HTTPException(status_code=400, detail="URL credentials are not allowed")
+    allowed_hosts = {
+        host.strip().lower()
+        for host in os.environ.get("SOURCE_FETCH_ALLOWED_HOSTS", "").split(",")
+        if host.strip()
+    }
+    if parsed.hostname.lower() not in allowed_hosts:
+        raise HTTPException(status_code=403, detail="Source host is not allowlisted")
+    try:
+        addresses = {
+            item[4][0]
+            for item in socket.getaddrinfo(
+                parsed.hostname,
+                parsed.port or (443 if parsed.scheme == "https" else 80),
+                type=socket.SOCK_STREAM,
+            )
+        }
+    except socket.gaierror as error:
+        raise HTTPException(status_code=400, detail="URL host could not be resolved") from error
+    if not addresses:
+        raise HTTPException(status_code=400, detail="URL host could not be resolved")
+    for address in addresses:
+        ip = ipaddress.ip_address(address)
+        if not ip.is_global:
+            raise HTTPException(
+                status_code=400,
+                detail="Private, local, and reserved network destinations are not allowed",
+            )
+
+
+def get_public_url(url: str, timeout: int) -> requests.Response:
+    current_url = url
+    for _ in range(4):
+        validate_public_url(current_url)
+        response = requests.get(current_url, timeout=timeout, allow_redirects=False)
+        if response.status_code not in {301, 302, 303, 307, 308}:
+            response.raise_for_status()
+            return response
+        location = response.headers.get("Location")
+        if not location:
+            raise HTTPException(status_code=502, detail="Redirect response has no location")
+        current_url = urljoin(current_url, location)
+    raise HTTPException(status_code=502, detail="Too many source redirects")
+
+
 def decode_html_response(response: requests.Response) -> str:
     if response.encoding and response.encoding.lower() != "iso-8859-1":
         return response.text
@@ -64,6 +116,7 @@ def decode_html_response(response: requests.Response) -> str:
 
 
 def discover_source(url: str, strategy: str) -> SourceDiscoveryResponse:
+    validate_public_url(url)
     normalized_strategy = strategy.strip().lower()
     if normalized_strategy == "static-pdf-url":
         file_name = os.path.basename(urlparse(url).path) or "document.pdf"
@@ -77,8 +130,7 @@ def discover_source(url: str, strategy: str) -> SourceDiscoveryResponse:
         raise HTTPException(status_code=400, detail=f"Unsupported strategy: {strategy}")
 
     try:
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
+        response = get_public_url(url, timeout=30)
     except Exception as error:
         raise HTTPException(
             status_code=502, detail=f"Failed to fetch source page: {error}"
@@ -111,8 +163,7 @@ def discover_source(url: str, strategy: str) -> SourceDiscoveryResponse:
                 continue
             visited.add(page_url)
             try:
-                child_response = requests.get(page_url, timeout=30)
-                child_response.raise_for_status()
+                child_response = get_public_url(page_url, timeout=30)
             except Exception:
                 continue
 
@@ -147,15 +198,20 @@ def discover_source(url: str, strategy: str) -> SourceDiscoveryResponse:
 
 def fetch_source_pdf(url: str) -> FetchedSourcePdf:
     try:
-        response = requests.get(url, timeout=60)
-        response.raise_for_status()
+        response = get_public_url(url, timeout=60)
     except Exception as error:
         raise HTTPException(
             status_code=502, detail=f"Failed to fetch PDF: {error}"
         ) from error
 
+    content_type = response.headers.get("Content-Type", "application/pdf")
+    if len(response.content) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Fetched PDF exceeds the 50MB limit")
+    if "pdf" not in content_type.lower() and not response.content.startswith(b"%PDF-"):
+        raise HTTPException(status_code=415, detail="Fetched source is not a PDF")
+
     return FetchedSourcePdf(
         content=response.content,
-        media_type=response.headers.get("Content-Type", "application/pdf"),
+        media_type="application/pdf",
         file_name=os.path.basename(urlparse(url).path) or "document.pdf",
     )

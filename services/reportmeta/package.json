@@ -1,0 +1,22 @@
+{
+  "name": "@policygos/reportmeta",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests --exclude 'dist/**'"
+  },
+  "dependencies": {
+    "@policygos/document-ocr-adapter": "workspace:*",
+    "@policygos/policy-schema": "workspace:*",
+    "zod": "^4.4.3"
+  }
+}

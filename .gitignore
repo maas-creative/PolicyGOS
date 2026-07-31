@@ -1,50 +1,20 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-!.vscode/launch.json
-!.vscode/tasks.json
-.idea
+node_modules/
+dist/
+server-dist/
+coverage/
+playwright-report/
+test-results/
+output/
+.playwright-cli/
+.env
+.env.*
+!.env.example
+!.env.production.example
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-
-# Build artifacts
-release/
-resources/
-*.spec
-build/
-
-# Local agent / automation outputs
+*.tsbuildinfo
 .serena/
-.playwright-mcp/
-
-# Test artifacts
-policyevaluationGOS/artifacts/
-policyevaluationGOS/playwright-report/
-policyevaluationGOS/test-results/
-
-# Local Python environments
-policyevaluationGOS/venv/
+tmp/
 document_ocr_api/venv/
 document_ocr_api/venv312/
-
-# Local source documents kept outside Git
-R7【政策Ⅰ】政策推進プラン構成事業一覧表.pdf
+document_ocr_api/__pycache__/
+document_ocr_api/.benchmarks/

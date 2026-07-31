@@ -1,0 +1,76 @@
+services:
+  gateway:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      POLICYGOS_DOMAIN: ${POLICYGOS_DOMAIN:?Set POLICYGOS_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      policygos:
+        condition: service_started
+
+  policygos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8787"
+    environment:
+      POLICYGOS_DEPLOYMENT: public
+      POLICYGOS_HOST: 0.0.0.0
+      POLICYGOS_PORT: 8787
+      POLICYGOS_ACCESS_TOKENS: ${POLICYGOS_ACCESS_TOKENS:?Set POLICYGOS_ACCESS_TOKENS}
+      POLICYGOS_RATE_LIMIT_PER_MINUTE: ${POLICYGOS_RATE_LIMIT_PER_MINUTE:-30}
+      POLICYGOS_MAX_CONCURRENT_OCR: ${POLICYGOS_MAX_CONCURRENT_OCR:-2}
+      POLICYGOS_AUDIT_LOG_PATH: /var/lib/policygos/audit/events.jsonl
+      POLICYGOS_LOCAL_ONLY: ${POLICYGOS_LOCAL_ONLY:-false}
+      OCR_BACKEND_URL: http://ocr:8000
+      OCR_API_TOKEN: ${OCR_API_TOKEN:?Set OCR_API_TOKEN}
+      REPORTMETA_PROVIDER: ${REPORTMETA_PROVIDER:?Set REPORTMETA_PROVIDER}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      OPENUI_MODEL: ${OPENUI_MODEL:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+    volumes:
+      - policygos_audit:/var/lib/policygos/audit
+    depends_on:
+      ocr:
+        condition: service_healthy
+
+  ocr:
+    build:
+      context: ./document_ocr_api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      OCR_DEPLOYMENT: public
+      OCR_API_TOKEN: ${OCR_API_TOKEN:?Set OCR_API_TOKEN}
+      OCR_ALLOWED_HOSTS: ocr,localhost,127.0.0.1
+      SOURCE_FETCH_ENABLED: "false"
+      JOB_TTL_SECONDS: 900
+      MAX_STORED_JOBS: 10
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/ready', timeout=5).raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  caddy_data:
+  caddy_config:
+  policygos_audit:

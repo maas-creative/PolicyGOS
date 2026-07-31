@@ -1,0 +1,32 @@
+{
+  "fixture": "walking-skeleton-policy-evaluation.pdf",
+  "projects": [
+    {
+      "name": "地域移動支援事業"
+    }
+  ],
+  "metrics": [
+    {
+      "indicatorName": "公共交通利用者満足度",
+      "role": "target",
+      "value": 80,
+      "unit": "%",
+      "fiscalYear": "令和7年度",
+      "evidence": {
+        "pageNumber": 1,
+        "quoteContains": "令和7年度の目標値は80%とする。"
+      }
+    },
+    {
+      "indicatorName": "公共交通利用者満足度",
+      "role": "actual",
+      "value": 76,
+      "unit": "%",
+      "fiscalYear": "令和7年度",
+      "evidence": {
+        "pageNumber": 2,
+        "quoteContains": "令和7年度の実績値は76%であった。"
+      }
+    }
+  ]
+}

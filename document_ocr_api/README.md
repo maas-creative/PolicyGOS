@@ -1,6 +1,6 @@
 # Document OCR Backend
 
-この backend は PolicyEval GOS 向けの document ingestion / OCR API です。現行実装は `PyMuPDF + PaddleOCR` を使います。
+このbackendはPolicyGOS向けのdocument ingestion / OCR APIです。公開用CPUコンテナは`PyMuPDF + Tesseract（日本語）`を使い、PaddlePaddleを別途導入した環境ではPaddleOCRも利用できます。
 
 ## 役割
 
@@ -16,10 +16,9 @@
    - layout text
    - `page.find_tables()` による表候補
 2. `PaddleOCR`
-   - 画像入力
-   - text extraction fallback
+   - PaddlePaddleを導入した環境での画像入力とtext extraction fallback
 3. `Tesseract`
-   - PaddleOCR が使えない環境での最後の fallback
+   - 公開用CPUコンテナの画像入力とOCR fallback
 
 ## 必要条件
 
@@ -40,8 +39,10 @@ python main.py
 または:
 
 ```bash
-uvicorn main:app --host 127.0.0.1 --port 8000
+PYTHONPATH=..:. uvicorn document_ocr_api.main:app --host 127.0.0.1 --port 8000
 ```
+
+リポジトリ直下の公開構成ではOCRポートをホストへ公開せず、PolicyGOS APIからだけ接続します。`OCR_DEPLOYMENT=public`では`OCR_API_TOKEN`が必須となり、`/health`と`/ready`以外はBearer認証を要求します。単体の`docker-compose.yml`はローカル開発専用で、ポートをloopbackへだけ公開します。
 
 ## 主な endpoint
 
@@ -79,6 +80,6 @@ uvicorn main:app --host 127.0.0.1 --port 8000
 
 ## 運用メモ
 
-- `PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True` を既定で使うと model host connectivity check を短絡できます
+- `PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True`を使うとmodel host connectivity checkを短絡できます
 - 初回の PaddleOCR / PP-Structure 系起動では model download が走ることがあります
-- frontend 側の debug script は `policyevaluationGOS/scripts/debug-yomitoku-json.mjs` を使います
+- 外部URL取得は既定で無効です。有効化には`SOURCE_FETCH_ENABLED=true`と`SOURCE_FETCH_ALLOWED_HOSTS`の両方が必要です

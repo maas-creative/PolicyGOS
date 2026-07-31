@@ -1,0 +1,33 @@
+{
+  "name": "@policygos/openui-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "dev": "vite",
+    "dev:server": "tsx server/index.ts",
+    "start:server": "node server-dist/index.js",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests --exclude 'dist/**'"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.5",
+    "@policygos/document-ocr-adapter": "workspace:*",
+    "@policygos/policy-openui-library": "workspace:*",
+    "@policygos/policy-schema": "workspace:*",
+    "@policygos/reportmeta": "workspace:*",
+    "hono": "^4.10.7",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.5",
+    "tsx": "^4.20.6",
+    "vite": "^8.2.0"
+  }
+}

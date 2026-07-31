@@ -6,6 +6,7 @@ otherwise Tesseract.
 """
 
 import os
+import secrets
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -16,6 +17,7 @@ if __package__ in {None, ""}:
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import Response
 
 from .api_models import (
@@ -96,20 +98,61 @@ async def lifespan(_app: FastAPI):
     logger.info("Shutting down Document OCR FastAPI server...")
 
 
+deployment = os.environ.get("OCR_DEPLOYMENT", "local").strip().lower()
+ocr_api_token = os.environ.get("OCR_API_TOKEN", "")
+if deployment not in {"local", "public"}:
+    raise RuntimeError("OCR_DEPLOYMENT must be local or public")
+if deployment == "public" and len(ocr_api_token) < 32:
+    raise RuntimeError("OCR_API_TOKEN must be at least 32 characters in public deployment")
+
 app = FastAPI(
     title="Document OCR API",
     description="PyMuPDF-first Japanese document extraction API with OCR fallback and background job support",
     version="2.0.0",
     lifespan=lifespan,
+    docs_url=None if deployment == "public" else "/docs",
+    redoc_url=None if deployment == "public" else "/redoc",
+    openapi_url=None if deployment == "public" else "/openapi.json",
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+allowed_hosts = [
+    host.strip()
+    for host in os.environ.get(
+        "OCR_ALLOWED_HOSTS", "localhost,127.0.0.1,ocr,testserver"
+    ).split(",")
+    if host.strip()
+]
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+
+cors_origins = [
+    origin.strip()
+    for origin in os.environ.get("OCR_CORS_ORIGINS", "").split(",")
+    if origin.strip()
+]
+if cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "DELETE"],
+        allow_headers=["Authorization", "Content-Type"],
+    )
+
+
+@app.middleware("http")
+async def require_internal_token(request, call_next):
+    if request.url.path in {"/health", "/ready"} or not ocr_api_token:
+        return await call_next(request)
+    authorization = request.headers.get("authorization", "")
+    expected = f"Bearer {ocr_api_token}"
+    if not secrets.compare_digest(authorization, expected):
+        return Response(
+            content='{"detail":"Authentication required"}',
+            status_code=401,
+            media_type="application/json",
+            headers={"WWW-Authenticate": 'Bearer realm="PolicyGOS OCR"'},
+        )
+    return await call_next(request)
 
 
 @app.get("/", response_model=dict)
@@ -171,11 +214,23 @@ async def discover_source_route(
     url: str = Query(..., description="Listing page or PDF URL"),
     strategy: str = Query(..., description="Discovery strategy"),
 ):
+    if os.environ.get("SOURCE_FETCH_ENABLED", "").lower() not in {
+        "1",
+        "true",
+        "yes",
+    }:
+        raise HTTPException(status_code=404, detail="Source fetching is disabled")
     return discover_source(url, strategy)
 
 
 @app.get("/sources/fetch")
 async def fetch_source_pdf_route(url: str = Query(..., description="Direct PDF URL")):
+    if os.environ.get("SOURCE_FETCH_ENABLED", "").lower() not in {
+        "1",
+        "true",
+        "yes",
+    }:
+        raise HTTPException(status_code=404, detail="Source fetching is disabled")
     fetched_pdf = fetch_source_pdf(url)
     return Response(
         content=fetched_pdf.content,
