@@ -1,20 +1,18 @@
-version: '3.8'
-
 services:
   yomitoku-api:
     build: .
-    container_name: yomitoku-api
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
-      - ./uploads:/app/uploads
-      - ./logs:/app/logs
+      - ./uploads:/app/document_ocr_api/uploads
+      - ./logs:/app/document_ocr_api/logs
     environment:
-      - PYTHONUNBUFFERED=1
-      - LOG_LEVEL=info
+      OCR_DEPLOYMENT: local
+      PYTHONUNBUFFERED: "1"
+      LOG_LEVEL: info
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/ready', timeout=5).raise_for_status()"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -25,15 +23,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.gpu
-    container_name: yomitoku-api-gpu
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     volumes:
-      - ./uploads:/app/uploads
-      - ./logs:/app/logs
+      - ./uploads:/app/document_ocr_api/uploads
+      - ./logs:/app/document_ocr_api/logs
     environment:
-      - PYTHONUNBUFFERED=1
-      - LOG_LEVEL=info
+      OCR_DEPLOYMENT: local
+      PYTHONUNBUFFERED: "1"
+      LOG_LEVEL: info
     deploy:
       resources:
         reservations:

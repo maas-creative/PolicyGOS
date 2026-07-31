@@ -8,6 +8,7 @@ const DATABASE_VERSION = 2;
 const STORE_NAME = "workspace";
 const SOURCE_STORE_NAME = "source-pdfs";
 const CURRENT_DATASET_KEY = "current-policy-dataset";
+const WORKSPACE_OWNER_KEY = "workspace-owner";
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -122,6 +123,34 @@ export async function clearWorkspace(): Promise<void> {
       transaction.objectStore(SOURCE_STORE_NAME).clear();
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
+    });
+  } finally {
+    database.close();
+  }
+}
+
+export async function ensureWorkspaceOwner(subject: string): Promise<void> {
+  const database = await openDatabase();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const readTransaction = database.transaction(STORE_NAME, "readonly");
+      const request = readTransaction.objectStore(STORE_NAME).get(WORKSPACE_OWNER_KEY);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const currentOwner = request.result;
+        const stores =
+          currentOwner && currentOwner !== subject
+            ? [STORE_NAME, SOURCE_STORE_NAME]
+            : [STORE_NAME];
+        const writeTransaction = database.transaction(stores, "readwrite");
+        if (currentOwner && currentOwner !== subject) {
+          writeTransaction.objectStore(STORE_NAME).clear();
+          writeTransaction.objectStore(SOURCE_STORE_NAME).clear();
+        }
+        writeTransaction.objectStore(STORE_NAME).put(subject, WORKSPACE_OWNER_KEY);
+        writeTransaction.oncomplete = () => resolve();
+        writeTransaction.onerror = () => reject(writeTransaction.error);
+      };
     });
   } finally {
     database.close();

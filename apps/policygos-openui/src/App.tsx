@@ -13,13 +13,17 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import {
   analyzePdf,
+  authenticate,
   extractPolicyDatasetFromOcr,
   generateOpenUi,
   getRuntimeInfo,
+  getServiceStatus,
+  setAccessToken,
   type RuntimeInfo
 } from "./api.js";
 import {
   clearWorkspace,
+  ensureWorkspaceOwner,
   loadSourcePdf,
   loadPolicyDataset,
   savePolicyDataset,
@@ -44,6 +48,11 @@ const reviewStatusLabels: Record<MetricValue["reviewStatus"], string> = {
 };
 
 export function App() {
+  const [authState, setAuthState] = useState<
+    "checking" | "required" | "authenticated"
+  >("checking");
+  const [subject, setSubject] = useState("local-reviewer");
+  const [publicDeployment, setPublicDeployment] = useState(false);
   const [dataset, setDataset] = useState<PolicyDataset>();
   const [selectedMetricId, setSelectedMetricId] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -61,6 +70,26 @@ export function App() {
   const [showDataHandling, setShowDataHandling] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
+    void getServiceStatus(controller.signal)
+      .then((status) => {
+        setPublicDeployment(status.authRequired);
+        if (status.authRequired) {
+          setAuthState("required");
+          return;
+        }
+        return ensureWorkspaceOwner("local-reviewer").then(() =>
+          setAuthState("authenticated")
+        );
+      })
+      .catch(() => setAuthState("required"));
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (authState !== "authenticated") {
+      return;
+    }
     let active = true;
     void loadPolicyDataset()
       .then((stored) => {
@@ -77,9 +106,12 @@ export function App() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [authState]);
 
   useEffect(() => {
+    if (authState !== "authenticated") {
+      return;
+    }
     const controller = new AbortController();
     void getRuntimeInfo(controller.signal)
       .then(setRuntimeInfo)
@@ -90,7 +122,7 @@ export function App() {
         setRuntimeInfoError(true);
       });
     return () => controller.abort();
-  }, []);
+  }, [authState]);
 
   const selectedMetric = useMemo(
     () => findSelectedMetric(dataset, selectedMetricId),
@@ -119,7 +151,7 @@ export function App() {
     const next = reviewMetricValue(dataset, {
       metricValueId,
       action,
-      actor: "local-reviewer",
+      actor: subject,
       ...(correctedValue !== undefined ? { correctedValue } : {})
     });
     setDataset(next);
@@ -153,6 +185,22 @@ export function App() {
     }
   };
 
+  if (authState === "checking") {
+    return <LoadingScreen />;
+  }
+
+  if (authState === "required") {
+    return (
+      <LoginScreen
+        onAuthenticated={async (authenticatedSubject) => {
+          await ensureWorkspaceOwner(authenticatedSubject);
+          setSubject(authenticatedSubject);
+          setAuthState("authenticated");
+        }}
+      />
+    );
+  }
+
   if (loading) {
     return <LoadingScreen />;
   }
@@ -162,6 +210,17 @@ export function App() {
       <Header
         saveState={saveState}
         hasDataset={Boolean(dataset)}
+        subject={subject}
+        {...(publicDeployment
+          ? {
+              onLogout: () => {
+                setAccessToken("");
+                setDataset(undefined);
+                setRuntimeInfo(undefined);
+                setAuthState("required");
+              }
+            }
+          : {})}
         onOpenDataHandling={() => setShowDataHandling(true)}
         onNewDocument={() => {
           if (window.confirm("現在のローカルワークスペースを閉じて、新しい文書を始めますか？")) {
@@ -280,11 +339,15 @@ export function App() {
 function Header({
   saveState,
   hasDataset,
+  subject,
+  onLogout,
   onOpenDataHandling,
   onNewDocument
 }: {
   saveState: "idle" | "saving" | "saved" | "error";
   hasDataset: boolean;
+  subject: string;
+  onLogout?: () => void;
   onOpenDataHandling: () => void;
   onNewDocument: () => void;
 }) {
@@ -304,9 +367,13 @@ function Header({
         </span>
       </a>
       <div className="topbar-actions">
+        <span className="signed-in-user">{subject}</span>
         <button type="button" onClick={onOpenDataHandling}>データ取扱い</button>
         {hasDataset ? (
           <button type="button" onClick={onNewDocument}>新しい文書</button>
+        ) : null}
+        {onLogout ? (
+          <button type="button" onClick={onLogout}>ログアウト</button>
         ) : null}
         <div className={`save-status save-status-${saveState}`} role="status">
           <span aria-hidden="true" />
@@ -1065,6 +1132,62 @@ function LoadingScreen() {
     <main className="loading-screen" aria-busy="true">
       <span />
       <p>ローカルワークスペースを読み込み中…</p>
+    </main>
+  );
+}
+
+function LoginScreen({
+  onAuthenticated
+}: {
+  onAuthenticated: (subject: string) => void | Promise<void>;
+}) {
+  const [token, setToken] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string>();
+
+  return (
+    <main className="login-screen">
+      <form
+        className="login-card"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setSubmitting(true);
+          setError(undefined);
+          void authenticate(token)
+            .then(({ subject: authenticatedSubject }) =>
+              Promise.resolve(onAuthenticated(authenticatedSubject))
+            )
+            .catch(() => setError("アクセストークンを確認できませんでした。"))
+            .finally(() => setSubmitting(false));
+        }}
+      >
+        <span className="brand-mark" aria-hidden="true">P</span>
+        <p className="eyebrow">PolicyGOS</p>
+        <h1>証拠確認ワークスペースへログイン</h1>
+        <p>
+          管理者から発行されたアクセストークンを入力してください。
+          トークンはブラウザへ保存されません。
+        </p>
+        <label>
+          アクセストークン
+          <input
+            type="password"
+            autoComplete="off"
+            value={token}
+            onChange={(event) => setToken(event.target.value)}
+            required
+            minLength={32}
+          />
+        </label>
+        {error ? <p className="pipeline-error" role="alert">{error}</p> : null}
+        <button
+          className="button button-primary"
+          type="submit"
+          disabled={submitting}
+        >
+          {submitting ? "確認中…" : "ログイン"}
+        </button>
+      </form>
     </main>
   );
 }

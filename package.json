@@ -2,6 +2,19 @@
   "name": "policygos",
   "version": "0.1.0",
   "private": true,
+  "description": "Evidence-bound policy document OCR, structured extraction, human review, and OpenUI generation.",
+  "license": "MIT",
+  "homepage": "https://ukyonagata0105.github.io/PolicyGOS/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ukyonagata0105/PolicyGOS.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ukyonagata0105/PolicyGOS/issues"
+  },
+  "engines": {
+    "node": ">=22.22"
+  },
   "type": "module",
   "packageManager": "pnpm@11.9.0",
   "scripts": {

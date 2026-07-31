@@ -29,6 +29,7 @@ client = TestClient(main.app)
 
 
 def test_discover_source_follows_child_pages_and_dedupes(monkeypatch):
+    monkeypatch.setattr(source_service, "validate_public_url", lambda url: None)
     responses = {
         "https://example.com/listing/index.html": FakeResponse(
             text="""
@@ -56,7 +57,7 @@ def test_discover_source_follows_child_pages_and_dedupes(monkeypatch):
     }
 
     monkeypatch.setattr(
-        source_service.requests, "get", lambda url, timeout: responses[url]
+        source_service.requests, "get", lambda url, timeout, **kwargs: responses[url]
     )
 
     discovered = source_service.discover_source(
@@ -77,7 +78,9 @@ def test_discover_source_follows_child_pages_and_dedupes(monkeypatch):
 
 
 def test_discover_source_raises_502_when_listing_fetch_fails(monkeypatch):
-    def fail_get(url, timeout):
+    monkeypatch.setattr(source_service, "validate_public_url", lambda url: None)
+
+    def fail_get(url, timeout, **kwargs):
         raise RuntimeError("boom")
 
     monkeypatch.setattr(source_service.requests, "get", fail_get)
@@ -94,10 +97,11 @@ def test_discover_source_raises_502_when_listing_fetch_fails(monkeypatch):
 
 
 def test_fetch_source_pdf_returns_filename_content_and_media_type(monkeypatch):
+    monkeypatch.setattr(source_service, "validate_public_url", lambda url: None)
     monkeypatch.setattr(
         source_service.requests,
         "get",
-        lambda url, timeout: FakeResponse(
+        lambda url, timeout, **kwargs: FakeResponse(
             content=b"%PDF-1.7 sample",
             headers={"Content-Type": "application/pdf"},
         ),
@@ -108,6 +112,25 @@ def test_fetch_source_pdf_returns_filename_content_and_media_type(monkeypatch):
     assert fetched.file_name == "sample.pdf"
     assert fetched.media_type == "application/pdf"
     assert fetched.content.startswith(b"%PDF-1.7")
+
+
+def test_source_fetch_rejects_private_network(monkeypatch):
+    monkeypatch.setenv("SOURCE_FETCH_ALLOWED_HOSTS", "localhost")
+    monkeypatch.setattr(
+        source_service.socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: [
+            (source_service.socket.AF_INET, source_service.socket.SOCK_STREAM, 6, "", ("127.0.0.1", 80))
+        ],
+    )
+
+    try:
+        source_service.validate_public_url("http://localhost/internal.pdf")
+    except HTTPException as error:
+        assert error.status_code == 400
+        assert "Private" in error.detail
+    else:
+        raise AssertionError("Expected private network URL to be rejected")
 
 
 def test_repair_endpoint_preserves_response_shape(monkeypatch):

@@ -1,6 +1,9 @@
 # PolicyGOS
 
-PolicyGOSは、政策評価PDFをOCRし、出典ページに結び付いた構造化データとして確認した後、確認済みデータだけからOpenUIの説明画面を生成するローカル優先のワークスペースです。
+PolicyGOSは、政策評価PDFをOCRし、出典ページに結び付いた構造化データとして確認した後、確認済みデータだけからOpenUIの説明画面を生成するワークスペースです。ローカル実行と、認証・TLS・監査記録を備えた外部サーバー実行をサポートします。
+
+[![CI](https://github.com/ukyonagata0105/PolicyGOS/actions/workflows/ci.yml/badge.svg)](https://github.com/ukyonagata0105/PolicyGOS/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 [サービス紹介サイト](https://ukyonagata0105.github.io/PolicyGOS/)
 
@@ -12,14 +15,23 @@ PolicyGOSは、政策評価PDFをOCRし、出典ページに結び付いた構�
 - `packages/policy-openui-library`: 許可した10種類のOpenUI部品と操作だけを公開します。
 - `apps/policygos-openui`: PDF取込、根拠確認、履歴保存、出典PDF表示、説明生成、JSON・CSV・HTML出力を提供します。
 
-ブラウザにはAPIキーを渡しません。`POLICYGOS_LOCAL_ONLY=true`の条件下では、ReportMetaからlocalhost以外のモデルAPIへ文書を送信できません。
+ブラウザにはモデルAPIキーやOCR内部トークンを渡しません。`POLICYGOS_LOCAL_ONLY=true`の条件下では、ReportMetaからlocalhost以外のモデルAPIへ文書を送信できません。
 
-## 初回準備
+## 技術的な位置づけ
 
-Node.js、pnpm、既存OCRサービスのPython環境、OpenAI互換APIを有効にしたLM Studioを用意します。
+PolicyGOSのGenerative UI実装は、ThesysがMIT Licenseで公開する[OpenUI](https://github.com/thesysdev/openui)の`@openuidev/react-lang`を依存パッケージとして利用し、政策評価向けの許可部品、参照検査、確認済みデータだけを渡す境界をこのリポジトリで実装しています。OpenUIのソースをこのリポジトリへ複製したフォークではありません。
+
+`document_ocr_api`と`services/document-ocr-adapter`は、Yomitoku系APIとの互換性を維持しながら、PyMuPDF、Tesseract、利用可能な環境ではPaddleOCRを使うPolicyGOS独自のOCR境界です。`services/reportmeta`もこのリポジトリ固有の構造化抽出・引用検査実装であり、外部リポジトリのフォークとしては配布していません。
+
+PolicyGOS本体は[MIT License](./LICENSE)です。依存パッケージとモデルにはそれぞれのライセンス、利用規約、データ保持条件が適用されます。
+
+## ローカル実行
+
+Node.js 22、pnpm 11、Python 3.12、OpenAI互換APIを有効にしたLM Studioを用意します。
 
 ```bash
-cd /Volumes/UNTITLED/Obsidian/Projects/PolicyGOS
+git clone https://github.com/ukyonagata0105/PolicyGOS.git
+cd PolicyGOS
 pnpm install
 cp .env.example .env
 pnpm check
@@ -31,17 +43,16 @@ PlaywrightのChromiumが未導入の場合は、次を一度実行します。
 pnpm exec playwright install chromium-headless-shell
 ```
 
-## 起動
-
 3つのターミナルでOCR、API、画面を順に起動します。
 
 ```bash
-cd /Volumes/UNTITLED/Obsidian/Projects/PolicyGOS/document_ocr_api
+cd document_ocr_api
+python3.12 -m venv venv312
+venv312/bin/python -m pip install -r requirements.txt
 PORT=8000 ./venv312/bin/python main.py
 ```
 
 ```bash
-cd /Volumes/UNTITLED/Obsidian/Projects/PolicyGOS
 set -a
 source .env
 set +a
@@ -50,11 +61,38 @@ node apps/policygos-openui/server-dist/index.js
 ```
 
 ```bash
-cd /Volumes/UNTITLED/Obsidian/Projects/PolicyGOS
 pnpm --filter @policygos/openui-app dev
 ```
 
 画面は通常`http://127.0.0.1:5173`、APIは`http://127.0.0.1:8787`で待機します。
+
+## 外部サーバー実行
+
+Docker Engine、Docker Compose、外部から80/443番へ到達できるLinuxサーバー、サーバーを指すドメインを用意します。CaddyがTLS証明書を取得するため、起動前にDNSを反映してください。
+
+```bash
+cp .env.production.example .env.production
+openssl rand -hex 32
+openssl rand -hex 32
+```
+
+生成した異なる値を、利用者用の`POLICYGOS_ACCESS_TOKENS`と内部OCR用の`OCR_API_TOKEN`へ設定します。モデル事業者、モデル名、APIキーも入力した後、秘密情報がGit管理外であることとCompose展開結果を確認します。
+
+```bash
+git check-ignore .env.production
+docker compose --env-file .env.production config
+docker compose --env-file .env.production build
+```
+
+公開操作の直前に次を実行します。
+
+```bash
+docker compose --env-file .env.production up -d
+docker compose ps
+curl -I "https://policygos.example.org/api/health"
+```
+
+最後のURLは設定した実ドメインへ置き換えます。利用者は管理者から個別に発行されたアクセストークンでログインします。トークンはブラウザメモリだけに置かれるため、再読み込み後は再入力が必要です。OCRはCompose内部だけで待機し、URL取得機能は既定で無効です。構成、保持、障害対応は[`docs/architecture/public-deployment.md`](./docs/architecture/public-deployment.md)を参照してください。
 
 ## 確認手順
 
@@ -75,8 +113,11 @@ ReportMetaとOpenUIでモデルを分ける場合は、構造化抽出用を`OPE
 ## 失敗時の判断
 
 - OCRが失敗した場合: `http://127.0.0.1:8000/health`と`/formats`を確認します。
+- 外部サーバーで401になる場合: 利用者トークンの発行対象と入力値を確認します。
+- 外部サーバーで429になる場合: 1分間の利用者別上限に達しています。
+- 外部サーバーで503になる場合: OCR同時実行上限に達しています。
 - ReportMetaが422を返す場合: モデル出力がスキーマ、文書ID、引用本文、値と根拠のいずれかを満たしていません。検証を外さず、モデルまたは抽出指示を調整します。
 - OpenUIが409を返す場合: 根拠付きの値が確認済みまたは修正済みになっていません。
 - 出典PDFを表示できない場合: 同じブラウザで元PDFを再度取り込みます。データセットとPDF原本はIndexedDBへ保存されます。
 
-外部公開や複数利用者運用へ移す場合は、認証、テナント分離、監査ログのサーバー永続化、保存期間、バックアップを別途実装する必要があります。現在の構成は単一端末での確認作業を対象とします。
+外部サーバー版は複数の利用者資格と監査記録に対応しますが、文書ワークスペースは各ブラウザのIndexedDBに残ります。組織別テナント、サーバー上の文書共有、水平分散は現在の対象外です。

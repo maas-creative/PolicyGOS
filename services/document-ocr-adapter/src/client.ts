@@ -19,6 +19,7 @@ export interface OcrUpload {
 
 export interface OcrClientOptions {
   baseUrl: string;
+  apiToken?: string;
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
   pollIntervalMs?: number;
@@ -28,6 +29,7 @@ export interface OcrClientOptions {
 export class OcrBackendClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof globalThis.fetch;
+  private readonly apiToken: string;
   private readonly timeoutMs: number;
   private readonly pollIntervalMs: number;
   private readonly retries: number;
@@ -35,6 +37,7 @@ export class OcrBackendClient {
   constructor(options: OcrClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.fetchImpl = options.fetch ?? globalThis.fetch;
+    this.apiToken = options.apiToken ?? "";
     this.timeoutMs = options.timeoutMs ?? 120_000;
     this.pollIntervalMs = options.pollIntervalMs ?? 500;
     this.retries = options.retries ?? 1;
@@ -174,7 +177,14 @@ export class OcrBackendClient {
     let lastError: unknown;
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       try {
-        const response = await this.fetchImpl(`${this.baseUrl}${path}`, init);
+        const headers = new Headers(init.headers);
+        if (this.apiToken) {
+          headers.set("Authorization", `Bearer ${this.apiToken}`);
+        }
+        const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+          ...init,
+          headers
+        });
         if (!response.ok) {
           throw new OcrAdapterError(
             "backend",

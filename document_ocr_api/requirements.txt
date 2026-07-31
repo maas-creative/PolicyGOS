@@ -1,28 +1,29 @@
 # FastAPI and Web Server
-fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
-python-multipart>=0.0.9
+fastapi==0.135.1
+uvicorn[standard]==0.41.0
+python-multipart==0.0.22
 
 # Image Processing
-opencv-python-headless>=4.10.0
-pillow>=11.0.0
-numpy>=2.0.0
+opencv-python-headless==4.13.0.92
+pillow==12.1.1
+numpy==2.4.3
 
 # PDF Processing
-pymupdf>=1.24.0
+pymupdf==1.27.2
 
 # OCR and document parsing
-paddleocr>=3.3.0
-paddlex[ocr]>=3.4.0
+paddleocr==3.4.0
+paddlex[ocr]==3.4.2
 # Install paddlepaddle separately when your platform supports it.
 
 # Data Validation
-pydantic>=2.10.0
+pydantic==2.12.5
 
 # CORS
-python-json-logger>=3.2.0
-requests>=2.32.0
+python-json-logger==4.0.0
+requests==2.32.5
+chardet==5.2.0
 
 # Development
-pytest>=8.0.0
-httpx>=0.28.0
+pytest==9.0.2
+httpx==0.28.1

@@ -18,6 +18,7 @@ const extractionResponseSchema = z.object({
 });
 
 const runtimeInfoSchema = z.object({
+  deployment: z.enum(["local", "public"]),
   localOnly: z.boolean(),
   reportMeta: z.object({
     provider: z.enum(["local", "openai", "gemini", "ollama"]),
@@ -39,8 +40,40 @@ const runtimeInfoSchema = z.object({
 
 export type RuntimeInfo = z.infer<typeof runtimeInfoSchema>;
 
-export async function getRuntimeInfo(signal?: AbortSignal): Promise<RuntimeInfo> {
+const serviceStatusSchema = z.object({
+  status: z.literal("healthy"),
+  service: z.literal("policygos-openui-api"),
+  authRequired: z.boolean()
+});
+
+let accessToken = "";
+
+export function setAccessToken(token: string): void {
+  accessToken = token.trim();
+}
+
+export async function getServiceStatus(signal?: AbortSignal) {
   const response = await fetch("/api/health", {
+    ...(signal ? { signal } : {})
+  });
+  return serviceStatusSchema.parse(await readJsonResponse(response));
+}
+
+export async function authenticate(token: string): Promise<{ subject: string }> {
+  setAccessToken(token);
+  try {
+    const response = await authorizedFetch("/api/session");
+    return z.object({ subject: z.string().min(1) }).parse(
+      await readJsonResponse(response)
+    );
+  } catch (error) {
+    setAccessToken("");
+    throw error;
+  }
+}
+
+export async function getRuntimeInfo(signal?: AbortSignal): Promise<RuntimeInfo> {
+  const response = await authorizedFetch("/api/runtime", {
     ...(signal ? { signal } : {})
   });
   return runtimeInfoSchema.parse(await readJsonResponse(response));
@@ -52,7 +85,7 @@ export async function analyzePdf(
 ): Promise<NormalizedOcrDocument> {
   const formData = new FormData();
   formData.append("file", file);
-  const response = await fetch("/api/ocr/analyze", {
+  const response = await authorizedFetch("/api/ocr/analyze", {
     method: "POST",
     body: formData,
     ...(signal ? { signal } : {})
@@ -66,7 +99,7 @@ export async function extractPolicyDatasetFromOcr(
   ocr: NormalizedOcrDocument,
   signal?: AbortSignal
 ): Promise<PolicyDataset> {
-  const response = await fetch("/api/reportmeta/extract", {
+  const response = await authorizedFetch("/api/reportmeta/extract", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -87,7 +120,7 @@ export async function generateOpenUi(
   onChunk: (accumulated: string) => void,
   signal?: AbortSignal
 ): Promise<string> {
-  const response = await fetch("/api/openui/generate", {
+  const response = await authorizedFetch("/api/openui/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
@@ -108,6 +141,14 @@ export async function generateOpenUi(
       return accumulated;
     }
   }
+}
+
+function authorizedFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+  return fetch(input, { ...init, headers });
 }
 
 async function readJsonResponse(response: Response): Promise<unknown> {

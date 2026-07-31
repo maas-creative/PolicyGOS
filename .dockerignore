@@ -1,0 +1,14 @@
+.git
+.github
+.env
+.env.production
+node_modules
+**/node_modules
+**/dist
+**/server-dist
+document_ocr_api/venv*
+document_ocr_api/__pycache__
+document_ocr_api/**/__pycache__
+output
+.playwright-cli
+.DS_Store

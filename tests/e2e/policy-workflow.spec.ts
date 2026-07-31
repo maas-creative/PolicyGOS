@@ -16,6 +16,17 @@ test("PDFから根拠確認、保存、OpenUI説明まで完了する", async ({
       body: JSON.stringify({
         status: "healthy",
         service: "policygos-openui-api",
+        authRequired: false
+      })
+    });
+  });
+  await page.route("**/api/runtime", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "healthy",
+        service: "policygos-openui-api",
+        deployment: "local",
         localOnly: true,
         reportMeta: {
           provider: "local",
@@ -156,4 +167,67 @@ test("PDFから根拠確認、保存、OpenUI説明まで完了する", async ({
     "src",
     /#page=2$/
   );
+});
+
+test("公開モードではアクセストークンを保存せず認証する", async ({ page }) => {
+  const token = "a".repeat(64);
+
+  await page.route("**/api/health", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "healthy",
+        service: "policygos-openui-api",
+        authRequired: true
+      })
+    });
+  });
+  await page.route("**/api/session", async (route) => {
+    expect(route.request().headers().authorization).toBe(`Bearer ${token}`);
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ subject: "public-reviewer" })
+    });
+  });
+  await page.route("**/api/runtime", async (route) => {
+    expect(route.request().headers().authorization).toBe(`Bearer ${token}`);
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "healthy",
+        service: "policygos-openui-api",
+        deployment: "public",
+        localOnly: false,
+        reportMeta: {
+          provider: "openai",
+          model: "gpt-4.1-mini",
+          host: "https://api.openai.com/v1"
+        },
+        openUi: {
+          model: "gpt-4.1-mini",
+          host: "https://api.openai.com/v1"
+        },
+        ocr: { host: "http://ocr:8000" },
+        retention: {
+          server: "request-only",
+          browser: "until-workspace-is-cleared"
+        }
+      })
+    });
+  });
+
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "証拠確認ワークスペースへログイン" })
+  ).toBeVisible();
+  await page.getByLabel("アクセストークン").fill(token);
+  await page.getByRole("button", { name: "ログイン" }).click();
+  await expect(page.getByRole("heading", { name: "政策文書から始める" })).toBeVisible();
+
+  expect(
+    await page.evaluate(() => ({
+      local: Object.values(localStorage),
+      session: Object.values(sessionStorage)
+    }))
+  ).toEqual({ local: [], session: [] });
 });
