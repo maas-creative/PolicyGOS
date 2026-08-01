@@ -7,17 +7,17 @@ test("GitHub Pages用サイトがデスクトップとモバイルで表示で�
 }) => {
   await page.goto(pagesUrl);
   await expect(
-    page.getByRole("heading", { name: "政策文書を、 根拠とともに読める形へ。" })
+    page.getByRole("heading", { name: "政策文書から、 検証できる説明へ。" })
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "生成する前に、根拠を確かめる。" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "GitHubで見る" })).toHaveAttribute(
+  await expect(page.getByRole("heading", { name: "生成を、確認の後に置く。" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "GitHub ↗" })).toHaveAttribute(
     "href",
     "https://github.com/maas-creative/PolicyGOS"
   );
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await expect(page.locator(".workspace-preview")).toBeVisible();
+  await expect(page.locator(".record-sheet")).toBeVisible();
   const horizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth
   );
