@@ -12,12 +12,12 @@
     "test": "vitest run --passWithNoTests --exclude 'dist/**'"
   },
   "dependencies": {
-    "@hono/node-server": "^2.0.5",
+    "@hono/node-server": "^2.1.0",
     "@policygos/document-ocr-adapter": "workspace:*",
     "@policygos/policy-openui-library": "workspace:*",
     "@policygos/policy-schema": "workspace:*",
     "@policygos/reportmeta": "workspace:*",
-    "hono": "^4.10.7",
+    "hono": "^4.13.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "zod": "^4.4.3"
