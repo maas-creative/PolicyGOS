@@ -15,10 +15,10 @@
     "test": "vitest run --passWithNoTests --exclude 'dist/**'"
   },
   "dependencies": {
-    "@openuidev/react-lang": "^0.2.9",
+    "@openuidev/react-lang": "^0.2.15",
     "@policygos/policy-schema": "workspace:*",
     "react": "^19.2.8",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/react": "^19.2.17"
