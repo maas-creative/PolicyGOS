@@ -17,6 +17,6 @@
   "dependencies": {
     "@policygos/document-ocr-adapter": "workspace:*",
     "@policygos/policy-schema": "workspace:*",
-    "zod": "^4.4.3"
+    "zod": "^4.6.5"
   }
 }
