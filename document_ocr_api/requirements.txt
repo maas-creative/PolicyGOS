@@ -13,7 +13,7 @@ pymupdf==1.27.2
 
 # OCR and document parsing
 paddleocr==3.4.0
-paddlex[ocr]==3.4.2
+paddlex[ocr]==3.7.2
 # Install paddlepaddle separately when your platform supports it.
 
 # Data Validation
